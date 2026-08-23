@@ -3,268 +3,210 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner de IDs Mercado Libre</title>
-  <!-- Librería para escanear QR -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <title>Escáner Pro - Etiquetas Mercado Libre</title>
+  <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
   <style>
-    * {
-      box-sizing: border-box;
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { max-width: 500px; margin: 0 auto; padding: 12px; background-color: #f4f6f9; color: #333; }
+    h2 { text-align: center; color: #2D3277; margin: 8px 0 15px 0; font-size: 1.3rem; }
+    
+    .scanner-overlay {
+      position: relative; background: #000; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2); height: 200px;
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f4f6f9;
-      color: #333;
+    #video { width: 100%; height: 100%; object-fit: cover; }
+    .scanner-line {
+      position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
+      background-color: #ff5252; box-shadow: 0 0 12px #ff5252;
+      animation: scan 1.5s infinite alternate ease-in-out;
     }
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
+    @keyframes scan { from { top: 20%; } to { top: 80%; } }
+
+    .quick-actions { display: flex; gap: 8px; margin: 12px 0; }
+    .btn {
+      flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold;
+      font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
     }
-    h2 {
-      color: #2D3277;
-      margin-bottom: 5px;
-    }
-    p.subtitle {
-      color: #666;
-      font-size: 14px;
-      margin: 0;
-    }
-    #reader {
-      width: 100%;
-      background: #fff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      border: none !important;
-    }
-    #reader button {
-      background-color: #29B6F6;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-      margin: 10px 0;
-    }
-    .controls {
-      display: flex;
-      gap: 12px;
-      margin: 20px 0;
-    }
-    button.btn-action {
-      flex: 1;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-    .btn-download {
-      background-color: #29B6F6;
-      color: white;
-    }
-    .btn-download:hover {
-      background-color: #0288D1;
-    }
-    .btn-clear {
-      background-color: #FF5252;
-      color: white;
-    }
-    .btn-clear:hover {
-      background-color: #D32F2F;
-    }
+    .btn-main { background: #2D3277; color: white; }
+    .btn-torch { background: #ffe600; color: #000; }
+    .btn-csv { background: #2e7d32; color: white; }
+    .btn-copy { background: #0288d1; color: white; }
+    .btn-danger { background: #d32f2f; color: white; }
+
     .status {
-      text-align: center;
-      font-weight: 600;
-      min-height: 24px;
-      margin: 12px 0;
-      padding: 8px;
-      border-radius: 6px;
+      text-align: center; font-weight: bold; min-height: 22px; font-size: 0.9rem;
+      padding: 6px; border-radius: 6px; margin: 8px 0;
     }
-    .list-container {
-      background: white;
-      border-radius: 12px;
-      padding: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+
+    .counter-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #fff; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-weight: bold;
     }
-    .list-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #f0f0f0;
+    .badge { background: #FFE600; padding: 4px 10px; border-radius: 20px; color: #2D3277; }
+
+    input[type="text"] {
+      width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;
     }
-    .list-header h3 {
-      margin: 0;
-      font-size: 16px;
-      color: #444;
-    }
-    .badge {
-      background-color: #FFE600;
-      color: #2D3277;
-      font-weight: bold;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 13px;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      max-height: 250px;
-      overflow-y: auto;
-    }
+
+    ul { list-style: none; padding: 0; margin: 0; background: white; border-radius: 8px; max-height: 250px; overflow-y: auto; }
     li {
-      padding: 12px;
-      border-bottom: 1px solid #f0f0f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: monospace;
-      font-size: 15px;
-      font-weight: 600;
-      color: #2D3277;
+      padding: 10px 12px; border-bottom: 1px solid #eee; display: flex;
+      justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.95rem;
     }
-    li:last-child {
-      border-bottom: none;
-    }
-    .empty-msg {
-      text-align: center;
-      color: #aaa;
-      font-size: 14px;
-      padding: 20px 0;
-    }
+    .delete-item { color: #d32f2f; cursor: pointer; font-weight: bold; padding: 2px 8px; }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <h2>Escáner Mercado Libre</h2>
-    <p class="subtitle">Escanéalos y descárgalos directamente en CSV</p>
+  <h2>Escáner Etiquetas ML</h2>
+
+  <div class="scanner-overlay">
+    <video id="video"></video>
+    <div class="scanner-line"></div>
   </div>
-  
-  <div id="reader"></div>
+
+  <div class="quick-actions">
+    <button id="torchBtn" class="btn btn-torch" onclick="toggleTorch()"> Flash</button>
+    <button class="btn btn-copy" onclick="copiarAlPortapapeles()"> Copiar</button>
+    <button class="btn btn-csv" onclick="exportarCSV()"> CSV</button>
+    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar</button>
+  </div>
+
   <div id="status" class="status"></div>
 
-  <div class="controls">
-    <button class="btn-action btn-download" onclick="exportarCSV()">Descargar CSV</button>
-    <button class="btn-action btn-clear" onclick="limpiarLista()">Limpiar Lista</button>
+  <div class="counter-bar">
+    <span>Escaneados:</span>
+    <span id="count" class="badge">0</span>
   </div>
 
-  <div class="list-container">
-    <div class="list-header">
-      <h3>IDs Escaneados</h3>
-      <span class="badge" id="count">0</span>
-    </div>
-    <ul id="lista-ids">
-      <div class="empty-msg" id="empty-msg">No hay elementos escaneados aún</div>
-    </ul>
-  </div>
+  <input type="text" id="search" placeholder="Buscar ID escaneado..." onkeyup="filtrarLista()">
+
+  <ul id="lista-ids"></ul>
 
   <script>
-    const idsGuardados = [];
+    let codeReader;
+    let selectedDeviceId;
+    let currentStreamTrack;
+    let torchOn = false;
+    const idsGuardados = JSON.parse(localStorage.getItem('ml-ids')) || [];
 
-    // Función para extraer el ID de Mercado Libre desde un texto o URL
-    function extraerIdMercadoLibre(texto) {
-      // Busca patrones como MLM123456789, MLA-123456789 o /p/MLM123456
-      const regex = /(ML[A-Z])[-\s]?([0-9]+)/i;
-      const coincidencia = texto.match(regex);
+    // Web Audio API para sonido de bip instantáneo
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 800, type = 'sine') {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
+    }
+
+    window.addEventListener('load', function () {
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      actualizarLista();
+
+      codeReader.listVideoInputDevices().then((devices) => {
+        const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[0];
+        selectedDeviceId = backCamera.deviceId;
+        startScanning();
+      }).catch(err => console.error(err));
+    });
+
+    function startScanning() {
+      codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+        if (result) procesarId(result.text);
+      });
+      setTimeout(() => {
+        const videoEl = document.getElementById('video');
+        if (videoEl.srcObject) currentStreamTrack = videoEl.srcObject.getVideoTracks()[0];
+      }, 1000);
+    }
+
+    function procesarId(texto) {
+      const regexValida = /^\d{10,14}$/;
+      const coincide = texto.match(regexValida);
       
-      if (coincidencia) {
-        return `${coincidencia[1].toUpperCase()}${coincidencia[2]}`;
-      }
-      return null;
-    }
-
-    function alEscanearExitoso(decodedText) {
-      const idEncontrado = extraerIdMercadoLibre(decodedText);
-
-      if (idEncontrado) {
-        if (!idsGuardados.includes(idEncontrado)) {
-          idsGuardados.push(idEncontrado);
+      if (coincide) {
+        const id = coincide[0];
+        if (!idsGuardados.includes(id)) {
+          idsGuardados.push(id);
           actualizarLista();
-          mostrarEstado(`¡Guardado!: ${idEncontrado}`, '#e8f5e9', '#2e7d32');
+          playBeep(1000);
+          if (navigator.vibrate) navigator.vibrate(80);
+          mostrarEstado(`¡Guardado!: ${id}`, '#e8f5e9', '#2e7d32');
         } else {
-          mostrarEstado(`El ID ${idEncontrado} ya está registrado`, '#fff3e0', '#ef6c00');
+          playBeep(300, 'square');
+          mostrarEstado(`Duplicado: ${id}`, '#fff3e0', '#ef6c00');
         }
-      } else {
-        mostrarEstado('No se detectó un ID válido de Mercado Libre', '#ffebee', '#c62828');
       }
-    }
-
-    function mostrarEstado(mensaje, bgColor, textColor) {
-      const el = document.getElementById('status');
-      el.textContent = mensaje;
-      el.style.backgroundColor = bgColor;
-      el.style.color = textColor;
-      setTimeout(() => { 
-        el.textContent = ''; 
-        el.style.backgroundColor = 'transparent';
-      }, 3000);
     }
 
     function actualizarLista() {
+      localStorage.setItem('ml-ids', JSON.stringify(idsGuardados));
+      document.getElementById('count').textContent = idsGuardados.length;
+      filtrarLista();
+    }
+
+    function borrarItem(index) {
+      idsGuardados.splice(index, 1);
+      actualizarLista();
+    }
+
+    function filtrarLista() {
+      const query = document.getElementById('search').value.toLowerCase();
       const listaEl = document.getElementById('lista-ids');
-      const countEl = document.getElementById('count');
-      const emptyMsg = document.getElementById('empty-msg');
-      
       listaEl.innerHTML = '';
-      countEl.textContent = idsGuardados.length;
 
-      if (idsGuardados.length === 0) {
-        listaEl.appendChild(emptyMsg);
-        emptyMsg.style.display = 'block';
-        return;
-      }
-
-      idsGuardados.slice().reverse().forEach((id, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${id}</span> <small style="color:#888; font-size:12px;">#${idsGuardados.length - index}</small>`;
-        listaEl.appendChild(li);
+      idsGuardados.slice().reverse().forEach((id, idx) => {
+        const originalIndex = idsGuardados.length - 1 - idx;
+        if (id.toLowerCase().includes(query)) {
+          const li = document.createElement('li');
+          li.innerHTML = `<span>#${originalIndex + 1} - <b>${id}</b></span> <span class="delete-item" onclick="borrarItem(${originalIndex})">✕</span>`;
+          listaEl.appendChild(li);
+        }
       });
     }
 
-    function exportarCSV() {
-      if (idsGuardados.length === 0) {
-        alert('No hay IDs guardados para exportar');
-        return;
+    function toggleTorch() {
+      if (currentStreamTrack && currentStreamTrack.getCapabilities().torch) {
+        torchOn = !torchOn;
+        currentStreamTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+      } else {
+        alert('Flash no soportado en esta cámara/navegador');
       }
+    }
 
-      let contenidoCSV = "data:text/csv;charset=utf-8,ID_MercadoLibre\n" + idsGuardados.join("\n");
-      const encodedUri = encodeURI(contenidoCSV);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `ids_mercadolibre_${new Date().toISOString().slice(0,10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    function copiarAlPortapapeles() {
+      if (!idsGuardados.length) return;
+      navigator.clipboard.writeText(idsGuardados.join('\n'));
+      mostrarEstado('¡Copiado al portapapeles!', '#e1f5fe', '#0288d1');
+    }
+
+    function exportarCSV() {
+      if (!idsGuardados.length) return alert('Lista vacía');
+      const csv = "data:text/csv;charset=utf-8,ID_MercadoLibre\n" + idsGuardados.join("\n");
+      const a = document.createElement("a");
+      a.href = encodeURI(csv);
+      a.download = `etiquetas_ml_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
     }
 
     function limpiarLista() {
-      if (idsGuardados.length === 0) return;
-      if (confirm('¿Seguro que deseas borrar la lista actual?')) {
+      if (idsGuardados.length && confirm('¿Borrar toda la lista?')) {
         idsGuardados.length = 0;
         actualizarLista();
       }
     }
 
-    // Inicializar el escáner HTML5
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", 
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true
-      },
-      /* verbose= */ false
-    );
-    html5QrcodeScanner.render(alEscanearExitoso);
+    function mostrarEstado(msg, bg, color) {
+      const el = document.getElementById('status');
+      el.textContent = msg; el.style.backgroundColor = bg; el.style.color = color;
+      setTimeout(() => { el.textContent = ''; el.style.backgroundColor = 'transparent'; }, 2000);
+    }
   </script>
 </body>
 </html>
