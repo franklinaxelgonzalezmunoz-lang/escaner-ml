@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner Pro - Etiquetas Mercado Libre</title>
+  <title>Escáner Cloud - Etiquetas ML</title>
   <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -27,7 +27,6 @@
       flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold;
       font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
     }
-    .btn-main { background: #2D3277; color: white; }
     .btn-torch { background: #ffe600; color: #000; }
     .btn-csv { background: #2e7d32; color: white; }
     .btn-copy { background: #0288d1; color: white; }
@@ -35,7 +34,7 @@
 
     .status {
       text-align: center; font-weight: bold; min-height: 22px; font-size: 0.9rem;
-      padding: 6px; border-radius: 6px; margin: 8px 0;
+      padding: 6px; border-radius: 6px; margin: 8px 0; transition: all 0.3s ease;
     }
 
     .counter-bar {
@@ -54,12 +53,12 @@
       padding: 10px 12px; border-bottom: 1px solid #eee; display: flex;
       justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.95rem;
     }
-    .delete-item { color: #d32f2f; cursor: pointer; font-weight: bold; padding: 2px 8px; }
+    .sync-status { font-size: 0.75rem; color: #2e7d32; }
   </style>
 </head>
 <body>
 
-  <h2>Escáner Etiquetas ML</h2>
+  <h2>Escáner Cloud - ML</h2>
 
   <div class="scanner-overlay">
     <video id="video"></video>
@@ -69,14 +68,14 @@
   <div class="quick-actions">
     <button id="torchBtn" class="btn btn-torch" onclick="toggleTorch()"> Flash</button>
     <button class="btn btn-copy" onclick="copiarAlPortapapeles()"> Copiar</button>
-    <button class="btn btn-csv" onclick="exportarCSV()"> CSV</button>
-    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar</button>
+    <button class="btn btn-csv" onclick="exportarCSV()"> CSV Local</button>
+    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar Local</button>
   </div>
 
   <div id="status" class="status"></div>
 
   <div class="counter-bar">
-    <span>Escaneados:</span>
+    <span>Escaneados (Local):</span>
     <span id="count" class="badge">0</span>
   </div>
 
@@ -85,13 +84,15 @@
   <ul id="lista-ids"></ul>
 
   <script>
+    // PEGA AQUÍ LA URL DE TU WEB APP DE GOOGLE APPS SCRIPT
+    const URL_GOOGLE_SHEETS = https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbxW99fjIRemWyhEQFPOv1dbdeH1KIu-ShuRpvsdWq01MeyVhkbiJnpaoeC3LXBaW3P0gg/exec;
+
     let codeReader;
     let selectedDeviceId;
     let currentStreamTrack;
     let torchOn = false;
     const idsGuardados = JSON.parse(localStorage.getItem('ml-ids')) || [];
 
-    // Web Audio API para sonido de bip instantáneo
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq = 800, type = 'sine') {
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -138,11 +139,40 @@
           playBeep(1000);
           if (navigator.vibrate) navigator.vibrate(80);
           mostrarEstado(`¡Guardado!: ${id}`, '#e8f5e9', '#2e7d32');
+          
+          // Enviar inmediatamente a Google Sheets
+          enviarAGoogleSheets(id);
         } else {
           playBeep(300, 'square');
-          mostrarEstado(`Duplicado: ${id}`, '#fff3e0', '#ef6c00');
+          mostrarEstado(`Duplicado local: ${id}`, '#fff3e0', '#ef6c00');
         }
       }
+    }
+
+    function enviarAGoogleSheets(id) {
+      if (!URL_GOOGLE_SHEETS || URL_GOOGLE_SHEETS.includes("PEGA_AQUI")) {
+        console.warn("Falta configurar la URL de Google Sheets");
+        return;
+      }
+
+      mostrarEstado(`Subiendo ${id} a la nube...`, '#e1f5fe', '#0288d1');
+
+      fetch(URL_GOOGLE_SHEETS, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: id,
+          dispositivo: navigator.userAgent.includes('Mobile') ? 'Móvil' : 'PC'
+        })
+      })
+      .then(() => {
+        mostrarEstado(`¡Enviado a Google Sheets!: ${id}`, '#e8f5e9', '#2e7d32');
+      })
+      .catch(error => {
+        console.error('Error al subir:', error);
+        mostrarEstado(`Error al enviar a la nube`, '#ffebee', '#c62828');
+      });
     }
 
     function actualizarLista() {
@@ -165,7 +195,7 @@
         const originalIndex = idsGuardados.length - 1 - idx;
         if (id.toLowerCase().includes(query)) {
           const li = document.createElement('li');
-          li.innerHTML = `<span>#${originalIndex + 1} - <b>${id}</b></span> <span class="delete-item" onclick="borrarItem(${originalIndex})">✕</span>`;
+          li.innerHTML = `<span>#${originalIndex + 1} - <b>${id}</b></span> <span class="sync-status">☁️ Enviado</span>`;
           listaEl.appendChild(li);
         }
       });
@@ -196,7 +226,7 @@
     }
 
     function limpiarLista() {
-      if (idsGuardados.length && confirm('¿Borrar toda la lista?')) {
+      if (idsGuardados.length && confirm('¿Borrar la lista local? (No borrará lo que ya se subió a Google Sheets)')) {
         idsGuardados.length = 0;
         actualizarLista();
       }
@@ -205,7 +235,7 @@
     function mostrarEstado(msg, bg, color) {
       const el = document.getElementById('status');
       el.textContent = msg; el.style.backgroundColor = bg; el.style.color = color;
-      setTimeout(() => { el.textContent = ''; el.style.backgroundColor = 'transparent'; }, 2000);
+      setTimeout(() => { el.textContent = ''; el.style.backgroundColor = 'transparent'; }, 2500);
     }
   </script>
 </body>
