@@ -3,127 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner Cloud - Etiquetas ML</title>
+  <title>Escáner Cloud ML</title>
   <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { max-width: 500px; margin: 0 auto; padding: 12px; background-color: #f4f6f9; color: #333; }
-    h2 { text-align: center; color: #2D3277; margin: 8px 0 15px 0; font-size: 1.3rem; }
+    h2 { text-align: center; color: #2D3277; margin: 8px 0 12px 0; font-size: 1.2rem; }
     
     .scanner-overlay {
       position: relative; background: #000; border-radius: 12px; overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2); height: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 180px; width: 100%;
     }
     #video { width: 100%; height: 100%; object-fit: cover; }
     .scanner-line {
       position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
-      background-color: #ff5252; box-shadow: 0 0 12px #ff5252;
+      background-color: #ff5252; box-shadow: 0 0 10px #ff5252;
       animation: scan 1.5s infinite alternate ease-in-out;
     }
     @keyframes scan { from { top: 20%; } to { top: 80%; } }
 
-    .quick-actions { display: flex; gap: 8px; margin: 12px 0; }
+    .quick-actions { display: flex; gap: 6px; margin: 12px 0; }
     .btn {
-      flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold;
-      font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
+      flex: 1; padding: 12px 5px; border: none; border-radius: 8px; font-weight: bold;
+      font-size: 12px; cursor: pointer; text-align: center; color: white;
     }
-    .btn-torch { background: #ffe600; color: #000; }
-    .btn-csv { background: #2e7d32; color: white; }
-    .btn-copy { background: #0288d1; color: white; }
-    .btn-danger { background: #d32f2f; color: white; }
+    .btn-start { background: #2D3277; }
+    .btn-torch { background: #f57c00; }
+    .btn-copy { background: #0288d1; }
+    .btn-danger { background: #d32f2f; }
 
     .status {
-      text-align: center; font-weight: bold; min-height: 22px; font-size: 0.9rem;
-      padding: 6px; border-radius: 6px; margin: 8px 0; transition: all 0.3s ease;
+      text-align: center; font-weight: bold; min-height: 24px; font-size: 0.85rem;
+      padding: 6px; border-radius: 6px; margin: 8px 0; line-height: 1.2;
     }
 
     .counter-bar {
       display: flex; justify-content: space-between; align-items: center;
-      background: #fff; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-weight: bold;
+      background: #fff; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-weight: bold; font-size: 0.9rem;
     }
-    .badge { background: #FFE600; padding: 4px 10px; border-radius: 20px; color: #2D3277; }
+    .badge { background: #FFE600; padding: 3px 8px; border-radius: 12px; color: #2D3277; }
 
-    input[type="text"] {
-      width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px;
-    }
-
-    ul { list-style: none; padding: 0; margin: 0; background: white; border-radius: 8px; max-height: 250px; overflow-y: auto; }
+    ul { list-style: none; padding: 0; margin: 0; background: white; border-radius: 8px; max-height: 220px; overflow-y: auto; }
     li {
-      padding: 10px 12px; border-bottom: 1px solid #eee; display: flex;
-      justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.95rem;
+      padding: 10px; border-bottom: 1px solid #eee; display: flex;
+      justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.9rem;
     }
-    .sync-status { font-size: 0.75rem; color: #2e7d32; }
+    .cloud-icon { font-size: 0.75rem; color: #2e7d32; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <h2>Escáner Cloud - ML</h2>
+  <h2>Escáner Etiquetas ML</h2>
 
   <div class="scanner-overlay">
-    <video id="video"></video>
+    <video id="video" playsinline></video>
     <div class="scanner-line"></div>
   </div>
 
   <div class="quick-actions">
-    <button id="torchBtn" class="btn btn-torch" onclick="toggleTorch()"> Flash</button>
-    <button class="btn btn-copy" onclick="copiarAlPortapapeles()"> Copiar</button>
-    <button class="btn btn-csv" onclick="exportarCSV()"> CSV Local</button>
-    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar Local</button>
+    <button id="btnCamara" class="btn btn-start" onclick="iniciarCamara()"> Iniciar</button>
+    <button class="btn btn-torch" onclick="toggleTorch()"> Flash</button>
+    <button class="btn btn-copy" onclick="copiarIDs()"> Copiar</button>
+    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar</button>
   </div>
 
   <div id="status" class="status"></div>
 
   <div class="counter-bar">
-    <span>Escaneados (Local):</span>
+    <span>Escaneados:</span>
     <span id="count" class="badge">0</span>
   </div>
-
-  <input type="text" id="search" placeholder="Buscar ID escaneado..." onkeyup="filtrarLista()">
 
   <ul id="lista-ids"></ul>
 
   <script>
-    // PEGA AQUÍ LA URL DE TU WEB APP DE GOOGLE APPS SCRIPT
-    const URL_GOOGLE_SHEETS = https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbxW99fjIRemWyhEQFPOv1dbdeH1KIu-ShuRpvsdWq01MeyVhkbiJnpaoeC3LXBaW3P0gg/exec;
+    // URL DE TU GOOGLE APPS SCRIPT CONFIGURADA
+    const URL_GOOGLE_SHEETS = "https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbxW99fjIRemWyhEQFPOv1dbdeH1KIu-ShuRpvsdWq01MeyVhkbiJnpaoeC3LXBaW3P0gg/exec";
 
-    let codeReader;
-    let selectedDeviceId;
-    let currentStreamTrack;
+    let codeReader = null;
+    let currentStreamTrack = null;
     let torchOn = false;
+    let scanningActive = false;
     const idsGuardados = JSON.parse(localStorage.getItem('ml-ids')) || [];
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playBeep(freq = 800, type = 'sine') {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
+    function playBeep(freq = 800) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.12);
+      } catch (e) { console.log(e); }
     }
 
-    window.addEventListener('load', function () {
-      codeReader = new ZXing.BrowserMultiFormatReader();
+    window.addEventListener('DOMContentLoaded', () => {
       actualizarLista();
-
-      codeReader.listVideoInputDevices().then((devices) => {
-        const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[0];
-        selectedDeviceId = backCamera.deviceId;
-        startScanning();
-      }).catch(err => console.error(err));
+      iniciarCamara();
     });
 
-    function startScanning() {
-      codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+    function iniciarCamara() {
+      if (scanningActive) return;
+      
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      mostrarEstado("Solicitando cámara...", "#fff3e0", "#ef6c00");
+
+      codeReader.decodeFromConstraints({
+        video: { facingMode: { exact: "environment" } }
+      }, 'video', (result, err) => {
         if (result) procesarId(result.text);
+      }).then(() => {
+        scanningActive = true;
+        mostrarEstado("Cámara Lista. Apunta al código.", "#e8f5e9", "#2e7d32");
+        obtenerTrackCamara();
+      }).catch(err => {
+        codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
+          if (result) procesarId(result.text);
+        }).then(() => {
+          scanningActive = true;
+          mostrarEstado("Cámara Lista", "#e8f5e9", "#2e7d32");
+          obtenerTrackCamara();
+        }).catch(error => {
+          mostrarEstado("Haz clic en 'Iniciar' y da permiso de cámara", "#ffebee", "#c62828");
+        });
       });
+    }
+
+    function obtenerTrackCamara() {
       setTimeout(() => {
         const videoEl = document.getElementById('video');
-        if (videoEl.srcObject) currentStreamTrack = videoEl.srcObject.getVideoTracks()[0];
+        if (videoEl && videoEl.srcObject) {
+          currentStreamTrack = videoEl.srcObject.getVideoTracks()[0];
+        }
       }, 1000);
     }
 
@@ -140,22 +154,16 @@
           if (navigator.vibrate) navigator.vibrate(80);
           mostrarEstado(`¡Guardado!: ${id}`, '#e8f5e9', '#2e7d32');
           
-          // Enviar inmediatamente a Google Sheets
           enviarAGoogleSheets(id);
         } else {
-          playBeep(300, 'square');
-          mostrarEstado(`Duplicado local: ${id}`, '#fff3e0', '#ef6c00');
+          playBeep(300);
+          mostrarEstado(`Ya está en lista: ${id}`, '#fff3e0', '#ef6c00');
         }
       }
     }
 
     function enviarAGoogleSheets(id) {
-      if (!URL_GOOGLE_SHEETS || URL_GOOGLE_SHEETS.includes("PEGA_AQUI")) {
-        console.warn("Falta configurar la URL de Google Sheets");
-        return;
-      }
-
-      mostrarEstado(`Subiendo ${id} a la nube...`, '#e1f5fe', '#0288d1');
+      if (!URL_GOOGLE_SHEETS) return;
 
       fetch(URL_GOOGLE_SHEETS, {
         method: 'POST',
@@ -165,39 +173,21 @@
           id: id,
           dispositivo: navigator.userAgent.includes('Mobile') ? 'Móvil' : 'PC'
         })
-      })
-      .then(() => {
-        mostrarEstado(`¡Enviado a Google Sheets!: ${id}`, '#e8f5e9', '#2e7d32');
-      })
-      .catch(error => {
-        console.error('Error al subir:', error);
-        mostrarEstado(`Error al enviar a la nube`, '#ffebee', '#c62828');
-      });
+      }).catch(error => console.error('Error enviando a la nube:', error));
     }
 
     function actualizarLista() {
       localStorage.setItem('ml-ids', JSON.stringify(idsGuardados));
       document.getElementById('count').textContent = idsGuardados.length;
-      filtrarLista();
-    }
-
-    function borrarItem(index) {
-      idsGuardados.splice(index, 1);
-      actualizarLista();
-    }
-
-    function filtrarLista() {
-      const query = document.getElementById('search').value.toLowerCase();
+      
       const listaEl = document.getElementById('lista-ids');
       listaEl.innerHTML = '';
 
       idsGuardados.slice().reverse().forEach((id, idx) => {
-        const originalIndex = idsGuardados.length - 1 - idx;
-        if (id.toLowerCase().includes(query)) {
-          const li = document.createElement('li');
-          li.innerHTML = `<span>#${originalIndex + 1} - <b>${id}</b></span> <span class="sync-status">☁️ Enviado</span>`;
-          listaEl.appendChild(li);
-        }
+        const originalIndex = idsGuardados.length - idx;
+        const li = document.createElement('li');
+        li.innerHTML = `<span>#${originalIndex} - <b>${id}</b></span> <span class="cloud-icon">☁️ Guardado</span>`;
+        listaEl.appendChild(li);
       });
     }
 
@@ -206,27 +196,18 @@
         torchOn = !torchOn;
         currentStreamTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
       } else {
-        alert('Flash no soportado en esta cámara/navegador');
+        alert('Flash no disponible o no permitido por el dispositivo.');
       }
     }
 
-    function copiarAlPortapapeles() {
-      if (!idsGuardados.length) return;
+    function copiarIDs() {
+      if (!idsGuardados.length) return alert('No hay IDs escaneados.');
       navigator.clipboard.writeText(idsGuardados.join('\n'));
-      mostrarEstado('¡Copiado al portapapeles!', '#e1f5fe', '#0288d1');
-    }
-
-    function exportarCSV() {
-      if (!idsGuardados.length) return alert('Lista vacía');
-      const csv = "data:text/csv;charset=utf-8,ID_MercadoLibre\n" + idsGuardados.join("\n");
-      const a = document.createElement("a");
-      a.href = encodeURI(csv);
-      a.download = `etiquetas_ml_${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
+      mostrarEstado('¡Copiados al portapapeles!', '#e1f5fe', '#0288d1');
     }
 
     function limpiarLista() {
-      if (idsGuardados.length && confirm('¿Borrar la lista local? (No borrará lo que ya se subió a Google Sheets)')) {
+      if (idsGuardados.length && confirm('¿Borrar la lista local?')) {
         idsGuardados.length = 0;
         actualizarLista();
       }
@@ -235,7 +216,6 @@
     function mostrarEstado(msg, bg, color) {
       const el = document.getElementById('status');
       el.textContent = msg; el.style.backgroundColor = bg; el.style.color = color;
-      setTimeout(() => { el.textContent = ''; el.style.backgroundColor = 'transparent'; }, 2500);
     }
   </script>
 </body>
