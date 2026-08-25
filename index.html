@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner Cloud ML</title>
+  <title>Escáner ML - Etiquetas</title>
   <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -22,15 +22,16 @@
     }
     @keyframes scan { from { top: 20%; } to { top: 80%; } }
 
-    .quick-actions { display: flex; gap: 6px; margin: 12px 0; }
+    .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 12px 0; }
     .btn {
-      flex: 1; padding: 12px 5px; border: none; border-radius: 8px; font-weight: bold;
-      font-size: 12px; cursor: pointer; text-align: center; color: white;
+      padding: 10px 4px; border: none; border-radius: 8px; font-weight: bold;
+      font-size: 11px; cursor: pointer; text-align: center; color: white;
     }
     .btn-start { background: #2D3277; }
     .btn-torch { background: #f57c00; }
-    .btn-copy { background: #0288d1; }
-    .btn-danger { background: #d32f2f; }
+    .btn-ws { background: #25D366; }
+    .btn-csv { background: #0288d1; }
+    .btn-danger { background: #d32f2f; margin-top: 6px; width: 100%; }
 
     .status {
       text-align: center; font-weight: bold; min-height: 24px; font-size: 0.85rem;
@@ -44,12 +45,13 @@
     }
     .badge { background: #FFE600; padding: 3px 8px; border-radius: 12px; color: #2D3277; }
 
-    ul { list-style: none; padding: 0; margin: 0; background: white; border-radius: 8px; max-height: 220px; overflow-y: auto; }
+    ul { list-style: none; padding: 0; margin: 0; background: white; border-radius: 8px; max-height: 240px; overflow-y: auto; }
     li {
       padding: 10px; border-bottom: 1px solid #eee; display: flex;
-      justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.9rem;
+      justify-content: space-between; align-items: center; font-family: monospace; font-size: 0.85rem;
     }
-    .cloud-icon { font-size: 0.75rem; color: #2e7d32; font-weight: bold; }
+    .time-tag { font-size: 0.75rem; color: #666; font-weight: normal; margin-left: 5px; }
+    .delete-item { color: #d32f2f; cursor: pointer; font-weight: bold; padding: 2px 8px; }
   </style>
 </head>
 <body>
@@ -62,30 +64,31 @@
   </div>
 
   <div class="quick-actions">
-    <button id="btnCamara" class="btn btn-start" onclick="iniciarCamara()"> Iniciar</button>
+    <button class="btn btn-start" onclick="iniciarCamara()"> Cámara</button>
     <button class="btn btn-torch" onclick="toggleTorch()"> Flash</button>
-    <button class="btn btn-copy" onclick="copiarIDs()"> Copiar</button>
-    <button class="btn btn-danger" onclick="limpiarLista()"> Borrar</button>
+    <button class="btn btn-ws" onclick="enviarWhatsApp()"> WhatsApp</button>
+    <button class="btn btn-csv" onclick="descargarCSV()"> Excel CSV</button>
   </div>
+  
+  <button class="btn btn-danger" onclick="limpiarLista()"> Borrar Lista</button>
 
   <div id="status" class="status"></div>
 
   <div class="counter-bar">
-    <span>Escaneados:</span>
+    <span>Total Escaneados:</span>
     <span id="count" class="badge">0</span>
   </div>
 
   <ul id="lista-ids"></ul>
 
   <script>
-    // URL DE TU GOOGLE APPS SCRIPT CONFIGURADA
-    const URL_GOOGLE_SHEETS = "https://script.google.com/a/macros/mercadolibre.com.mx/s/AKfycbxW99fjIRemWyhEQFPOv1dbdeH1KIu-ShuRpvsdWq01MeyVhkbiJnpaoeC3LXBaW3P0gg/exec";
-
     let codeReader = null;
     let currentStreamTrack = null;
     let torchOn = false;
     let scanningActive = false;
-    const idsGuardados = JSON.parse(localStorage.getItem('ml-ids')) || [];
+    
+    // Formato de guardado: [{ id: "47801259812", hora: "04:15 PM" }]
+    const idsGuardados = JSON.parse(localStorage.getItem('ml-ids-time')) || [];
 
     function playBeep(freq = 800) {
       try {
@@ -107,9 +110,8 @@
 
     function iniciarCamara() {
       if (scanningActive) return;
-      
       codeReader = new ZXing.BrowserMultiFormatReader();
-      mostrarEstado("Solicitando cámara...", "#fff3e0", "#ef6c00");
+      mostrarEstado("Cargando cámara...", "#fff3e0", "#ef6c00");
 
       codeReader.decodeFromConstraints({
         video: { facingMode: { exact: "environment" } }
@@ -117,17 +119,17 @@
         if (result) procesarId(result.text);
       }).then(() => {
         scanningActive = true;
-        mostrarEstado("Cámara Lista. Apunta al código.", "#e8f5e9", "#2e7d32");
+        mostrarEstado("Cámara Activa. Apunta al código.", "#e8f5e9", "#2e7d32");
         obtenerTrackCamara();
       }).catch(err => {
         codeReader.decodeFromVideoDevice(undefined, 'video', (result, err) => {
           if (result) procesarId(result.text);
         }).then(() => {
           scanningActive = true;
-          mostrarEstado("Cámara Lista", "#e8f5e9", "#2e7d32");
+          mostrarEstado("Cámara Activa", "#e8f5e9", "#2e7d32");
           obtenerTrackCamara();
         }).catch(error => {
-          mostrarEstado("Haz clic en 'Iniciar' y da permiso de cámara", "#ffebee", "#c62828");
+          mostrarEstado("Toca 'Cámara' para dar permisos", "#ffebee", "#c62828");
         });
       });
     }
@@ -147,14 +149,15 @@
       
       if (coincide) {
         const id = coincide[0];
-        if (!idsGuardados.includes(id)) {
-          idsGuardados.push(id);
+        const yaExiste = idsGuardados.some(item => item.id === id);
+
+        if (!yaExiste) {
+          const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          idsGuardados.push({ id: id, hora: horaActual });
           actualizarLista();
           playBeep(1000);
           if (navigator.vibrate) navigator.vibrate(80);
           mostrarEstado(`¡Guardado!: ${id}`, '#e8f5e9', '#2e7d32');
-          
-          enviarAGoogleSheets(id);
         } else {
           playBeep(300);
           mostrarEstado(`Ya está en lista: ${id}`, '#fff3e0', '#ef6c00');
@@ -162,33 +165,54 @@
       }
     }
 
-    function enviarAGoogleSheets(id) {
-      if (!URL_GOOGLE_SHEETS) return;
-
-      fetch(URL_GOOGLE_SHEETS, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: id,
-          dispositivo: navigator.userAgent.includes('Mobile') ? 'Móvil' : 'PC'
-        })
-      }).catch(error => console.error('Error enviando a la nube:', error));
-    }
-
     function actualizarLista() {
-      localStorage.setItem('ml-ids', JSON.stringify(idsGuardados));
+      localStorage.setItem('ml-ids-time', JSON.stringify(idsGuardados));
       document.getElementById('count').textContent = idsGuardados.length;
       
       const listaEl = document.getElementById('lista-ids');
       listaEl.innerHTML = '';
 
-      idsGuardados.slice().reverse().forEach((id, idx) => {
-        const originalIndex = idsGuardados.length - idx;
+      idsGuardados.slice().reverse().forEach((item, idx) => {
+        const originalIndex = idsGuardados.length - 1 - idx;
         const li = document.createElement('li');
-        li.innerHTML = `<span>#${originalIndex} - <b>${id}</b></span> <span class="cloud-icon">☁️ Guardado</span>`;
+        li.innerHTML = `
+          <span>#${originalIndex + 1} - <b>${item.id}</b> <span class="time-tag">(${item.hora})</span></span>
+          <span class="delete-item" onclick="borrarItem(${originalIndex})">✕</span>
+        `;
         listaEl.appendChild(li);
       });
+    }
+
+    function borrarItem(index) {
+      idsGuardados.splice(index, 1);
+      actualizarLista();
+    }
+
+    function enviarWhatsApp() {
+      if (!idsGuardados.length) return alert('No hay IDs escaneados para enviar.');
+      
+      const textoIDs = idsGuardados.map((item, i) => `${i + 1}. ${item.id} (${item.hora})`).join('\n');
+      const mensaje = `*IDs Mercado Libre Escaneados (${idsGuardados.length}):*\n\n` + textoIDs;
+      const urlWS = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+      window.open(urlWS, '_blank');
+    }
+
+    function descargarCSV() {
+      if (!idsGuardados.length) return alert('No hay IDs escaneados para exportar.');
+      
+      let csvContent = "data:text/csv;charset=utf-8,Num,ID_MercadoLibre,Hora_Escaneo\n";
+      idsGuardados.forEach((item, index) => {
+        csvContent += `${index + 1},${item.id},${item.hora}\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `etiquetas_ml_${fechaHoy}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     function toggleTorch() {
@@ -196,18 +220,12 @@
         torchOn = !torchOn;
         currentStreamTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
       } else {
-        alert('Flash no disponible o no permitido por el dispositivo.');
+        alert('Flash no disponible.');
       }
     }
 
-    function copiarIDs() {
-      if (!idsGuardados.length) return alert('No hay IDs escaneados.');
-      navigator.clipboard.writeText(idsGuardados.join('\n'));
-      mostrarEstado('¡Copiados al portapapeles!', '#e1f5fe', '#0288d1');
-    }
-
     function limpiarLista() {
-      if (idsGuardados.length && confirm('¿Borrar la lista local?')) {
+      if (idsGuardados.length && confirm('¿Borrar toda la lista actual?')) {
         idsGuardados.length = 0;
         actualizarLista();
       }
